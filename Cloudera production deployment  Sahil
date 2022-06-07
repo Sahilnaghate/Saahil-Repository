@@ -5,26 +5,23 @@
 
 -----*** Create a VPC ***-----
 
-## Create a elastic ip
+AWS console
+1.vpc- luanch vpc wizard - vpc,subnet etc- auto generate=myvpc- avaialability zone=1- no. of public subnet=1. no. of private subnet=1- NATGATEWAY=in 1AZ -\ vpc endpoint-s3 gateway- CREATE VPC
+2.subnet- myvpc-subnet-private- copy ipv4 CIDR 10.0.128.0/20
+3.security group - check MYVPCid and give name myvpc -edit inbound rule
 
-## Create VPC with a public and a private subnet
+add rule-all traffic- myip- ...
+add rule- all trafic-custom- 10.0.128.0/20 (paste subnet-private-)
 
-## Create two security groups 
+4. security group- create security group - name =private subnet sg1- description=sg1 -vpc=myvpc2- create security group
 
--> In default security group
-
-All traffic     your-ip/32
-All traffic     private-subnet-cidr/24
-
-
--> in second security group (allowing communication only from edge)
-
-All traffic     default-sec-group-id
-All traffic     private-subnet-cidr/24
-
+5. private subnet sg1 - edit inbound rule- 
+ALL traffic - custom-10.0.128.0/20
+all traffic - custom- sg-default security group
 
 -----*** Launch public nodes ***-----
-
+TERMINAL-
+$ssh -i chd.pem ubuntu@CMPUBLICIP
 
 -----*** Update the server ***-----
 $ sudo apt-get update && sudo apt-get dist-upgrade -y
@@ -70,13 +67,17 @@ $ sudo tune2fs -l /dev/nvme0n1p1 | egrep "Block count|Reserved block count"
 
 ### Note : Now, save the instance to an image, call it “Cloudera Manager” Make sure to 
 check “No reboot”
-
+CM-action-image- create image -name=cloud -No reboot=enable- create image
 
 -----*** Launch cluster nodes ***----
 
-Launch reamining instances in private subnet
+select AMI - launch from ami - t3xlarge -no.of instance=3, network=myvpc2, subnet=private subnet- select existing group=private subnet sg -launch
 
-Select second security group for these instances
+select AMI - launch from ami - t3 large -no.of instance=3, network=myvpc2, subnet=private subnet- select existing group=private subnet sg -launch
+
+select AMI for EDGE NODE IN public subnet
+select AMI - launch from ami - t3large -no.of instance=1, network=myvpc2, subnet=public subnet,auto assign=enable- select existing group=default -launch
+
 
 
 ##### Preparing external database for cloudera #####
@@ -85,6 +86,9 @@ Select second security group for these instances
 
 sudo apt-get install mysql-server -y
 
+passwaord - root
+          -root
+          
 -----*** Stop mysql ***-----
 
 sudo service mysql stop 
@@ -112,8 +116,21 @@ cd /etc/mysql/mysql.conf.d/
 
 sudo nano mysqld.cnf
 
-==============================================================================
+sudo rm mysqld.cnf
 
+cd
+
+NEW TERMINAL-
+
+scp -i chd.pem mysqld.cnf ubuntu@CMpublicIP:~/
+
+OLD TREMINAL-
+ls
+chmod 600 chd.pem
+sudo cp mysqld.cnf /etc/mysql/mysql.conf.d/ 
+
+==============================================================================
+optional
 [mysqld]
 datadir=/var/lib/mysql
 socket=/var/lib/mysql/mysql.sock
@@ -346,28 +363,107 @@ After assigning service roles to hosts, when you are on database setup page, do 
 
 ## Install MySql and configure as above
 
+-----*** Install MySQL ***-----
+
+sudo apt-get install mysql-server -y
+passwaord - root
+          -root
+          
+-----*** Stop mysql ***-----
+
+sudo service mysql stop 
+
+sudo service mysql status
+
+-----*** Move innodb log file ***-----
+
+mkdir mysqlbup
+
+sudo su
+
+cd /var/lib/mysql
+
+ mv ib_logfile0 /home/ubuntu/mysqlbup/
+
+ mv ib_logfile1 /home/ubuntu/mysqlbup/
+
+exit
+
+-----*** Edit the option file mysqld.cnf to cloudera recommended settings ***-----
+
+cd /etc/mysql/mysql.conf.d/
+
+sudo nano mysqld.cnf
+
+sudo rm mysqld.cnf
+
+cd
+
+NEW TERMINAL-
+
+scp -i chd.pem mysqld.cnf ubuntu@CMpublicIP:~/
+
+OLD TREMINAL-
+ls
+chmod 600 chd.pem
+sudo cp mysqld.cnf /etc/mysql/mysql.conf.d/ (tab maro)
+
+-----*** Make mysql start on boot ***----
+
+sudo update-rc.d mysql defaults
+
+-----*** Start mysql ***-----
+
+sudo service mysql start
+sudo service mysql status
+
+-----*** Mysql secure install ***----
+
+$ sudo /usr/bin/mysql_secure_installation
+[...]
+Enter current password for root (enter for none):
+OK, successfully used password, moving on...
+[...]
+Set root password? [Y/n] y
+New password:
+Re-enter new password:
+Remove anonymous users? [Y/n] Y
+[...]
+Disallow root login remotely? [Y/n] N
+[...]
+Remove test database and access to it [Y/n] Y
+[...]
+Reload privilege tables now? [Y/n] Y
+All done!
+
+-----*** Install mysql JDBC driver ***-----
+
+sudo apt-get install libmysql-java
+
+
+
 mysql -u root -p
 
->> For reports manager
+>> For reports manager (Note : Enter pri-dns of host where the particular service is running) (CMS host)
 
 mysql> create database rman DEFAULT CHARACTER SET utf8;
-mysql> CREATE USER 'rman'@'ip-10-0-142-204.ec2.internal' IDENTIFIED BY 'password';
+mysql> CREATE USER 'rman'@'ip-10-0-135-121.ec2.internal' IDENTIFIED BY 'password';
 (Note : Enter pri-dns of host where the particular service is running)
-mysql> grant all on rman.* TO 'rman'@'ip-10-0-142-204.ec2.internal' IDENTIFIED BY 'password';
+mysql> grant all on rman.* TO 'rman'@'ip-10-0-135-121.ec2.internal' IDENTIFIED BY 'password';
 
 
->> For Hive
+>> For Hive (Note : Enter pri-dns of host where the particular service is running) (HMS & Oozie host)
 
 mysql> create database metastore DEFAULT CHARACTER SET utf8;
-mysql> CREATE USER 'hive'@'ip-10-0-138-52.ec2.internal' IDENTIFIED BY 'password';
-mysql> grant all on metastore.* TO 'hive'@'ip-10-0-138-52.ec2.internal' IDENTIFIED BY 'password';
+mysql> CREATE USER 'hive'@'ip-10-0-128-67.ec2.internal' IDENTIFIED BY 'password';
+mysql> grant all on metastore.* TO 'hive'@'ip-10-0-128-67.ec2.internal' IDENTIFIED BY 'password';
 
 
->> For Oozie
+>> For Oozie (Note : Enter pri-dns of host where the particular service is running) (HMS & Oozie host)
 
 mysql> create database oozie default character set utf8;
-mysql> CREATE USER 'oozie'@'ip-10-0-138-52.ec2.internal' IDENTIFIED BY 'password';
-mysql> grant all privileges on oozie.* to 'oozie'@'ip-10-0-138-52.ec2.internal' identified by 'password';
+mysql> CREATE USER 'oozie'@'ip-10-0-128-67.ec2.internal' IDENTIFIED BY 'password';
+mysql> grant all privileges on oozie.* to 'oozie'@'ip-10-0-128-67.ec2.internal' identified by 'password';
 
 == Add mysql driver jar
 
@@ -379,7 +475,7 @@ sudo apt-get install libmysql-java
 
 sudo cp /usr/share/java/mysql-connector-java-5.1.38.jar /opt/cloudera/parcels/CDH/lib/oozie/lib/
 
->> For Hue
+>> For Hue connect to cm host
 
 sudo su
 
@@ -395,10 +491,10 @@ sql_mode=STRICT_ALL_TABLES
 sudo service mysql restart
 
 mysql -u root -p
-
+(Note : Enter pri-dns of host where the particular service is running) (HUE host)
 mysql> create database hue default character set utf8 default collate utf8_general_ci;
-mysql> CREATE USER 'hue'@'ip-10-0-4-217.ec2.internal' IDENTIFIED BY 'password';
-mysql> grant all on hue.* to 'hue'@'ip-10-0-4-217.ec2.internal' identified by 'password';
+mysql> CREATE USER 'hue'@'ip-10-0-10-30.ec2.internal' IDENTIFIED BY 'password';
+mysql> grant all on hue.* to 'hue'@'ip-10-0-10-30.ec2.internal' identified by 'password';
 
 
 ##### Install Mysql jdbc jar on hosts where services are running #####
@@ -416,9 +512,9 @@ cd /etc/mysql//mysql.conf.d/
 
 sudo nano mysqld.cnf
 
-sudo service mysql restart
-
 bind-address=(private-ip-of-cms)
+
+sudo service mysql restart
 
 ## Now continue installation on CM web ui
 
