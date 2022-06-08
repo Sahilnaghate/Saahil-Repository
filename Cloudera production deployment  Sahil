@@ -358,18 +358,6 @@ After assigning service roles to hosts, when you are on database setup page, do 
 
 ## For hue we will create db on hue host, for others we will create on CMS host
 
-#####  database Cloudera webui  #####
-Hive 
-Mysql - DATABASE NAME Private Dns of CMS Host - metastore- hive - password
-
-Report Manager
-Mysql - DATABASE NAME Private Dns of CMS Host - rman  - rman - password
-
-Oozie
-Mysql - DATABASE NAME Private Dns of CMS Host - oozie - oozie - password
-
-Hue
-Mysql - DATABASE NAME Private Dns of CM Host - hue - hue - password
 
 
 ## On CMS host
@@ -530,6 +518,19 @@ bind-address=(private-ip-of-cms)
 sudo service mysql restart
 
 ## Now continue installation on CM web ui
+
+#####  database Cloudera webui  #####
+Hive 
+Mysql - DATABASE NAME Private Dns of CMS Host - metastore- hive - password
+
+Report Manager
+Mysql - DATABASE NAME Private Dns of CMS Host - rman  - rman - password
+
+Oozie
+Mysql - DATABASE NAME Private Dns of CMS Host - oozie - oozie - password
+
+Hue
+Mysql - DATABASE NAME Private Dns of CM Host - hue - hue - password
 
 
 
